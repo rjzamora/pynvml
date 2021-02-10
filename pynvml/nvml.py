@@ -186,8 +186,8 @@ _nvmlValueType_t = c_uint
 NVML_VALUE_TYPE_DOUBLE = 0
 NVML_VALUE_TYPE_UNSIGNED_INT = 1
 NVML_VALUE_TYPE_UNSIGNED_LONG = 2
-NVML_VALUE_TYPE_UNSIGNED_LONG_LONG = 3
-NVML_VALUE_TYPE_COUNT = 4
+NVML_VALUE_TYPE_SIGNED_LONG_LONG = 4
+NVML_VALUE_TYPE_COUNT = 5
 
 _nvmlPerfPolicyType_t = c_uint
 NVML_PERF_POLICY_POWER = 0
@@ -599,6 +599,7 @@ class c_nvmlHwbcEntry_t(PrintableStructure):
 class c_nvmlValue_t(Union):
     _fields_ = [
         ('dVal', c_double),
+        ('sllVal', c_longlong),
         ('uiVal', c_uint),
         ('ulVal', c_ulong),
         ('ullVal', c_ulonglong),
@@ -2093,3 +2094,68 @@ def nvmlDeviceSetNvLinkUtilizationControl(device, link, counter, control, reset)
     fn = get_func_pointer("nvmlDeviceSetNvLinkUtilizationControl")
     ret = fn(device, c_link, c_counter, byref(c_control), c_reset)
     return check_return(ret)
+
+
+class c_nvmlFieldValue_t(PrintableStructure):
+    _fields_ = [
+        ('fieldId', c_uint),
+        ('latencyUsec', c_longlong),
+        ('nvmlReturn', _nvmlReturn_t),
+        ('scopeId', c_uint),
+        ('timestamp', c_longlong),
+        ('value', c_nvmlValue_t),
+        ('valueType', _nvmlValueType_t),
+    ]
+
+
+NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_RX = 139
+# NVLink RX Data throughput in KiB.
+NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_TX = 138
+# NVLink TX Data throughput in KiB.
+NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX = 141
+# NVLink RX Data + protocol overhead in KiB.
+NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX = 140
+# NVLink TX Data + protocol overhead in KiB.
+
+def nvmlDeviceGetFieldValues(device, values_count, values):
+    """Request values for a list of fields for a device.
+    
+    This API allows multiple fields to be queried at once. If any of the
+    underlying fieldIds are populated by the same driver call, the results
+    for those field IDs will be populated from a single call rather than
+    making a driver call for each fieldId.
+
+    Args:
+        device: The device handle of the GPU to request field values for
+
+        values_count: Number of entries in values that should be retrieved
+
+        values: Array of valuesCount structures to hold field values.
+                Each value's fieldId must be populated prior to this call
+
+    """
+
+    c_values_count = c_uint(values_count)
+
+
+    c_array_factory = c_nvmlFieldValue_t * values_count
+    c_values = c_array_factory(*values)
+
+    fn = get_func_pointer("nvmlDeviceGetFieldValues")
+    ret = fn(device, c_values_count, byref(c_values))
+
+    check_return(ret)
+    return c_values
+
+    # values_count = 1
+    # c_values_count = c_uint(values_count)
+    # structs = [
+    #     c_nvmlFieldValue_t(NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_TX)
+    # ]
+    # c_values = (c_nvmlFieldValue_t * values_count)(*structs)
+
+    # fn = get_func_pointer("nvmlDeviceGetFieldValues")
+    # ret = fn(device, c_values_count, byref(c_values))
+
+    # check_return(ret)
+    # return c_values
